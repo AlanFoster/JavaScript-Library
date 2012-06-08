@@ -13,12 +13,9 @@ var _ = (function (){
         
         if(arg.match(/^<(.*?)>$/)){
 			this.nodes = [];
-            var newElem = document.createElement(RegExp.$1);
-			for (var i in args) {
-                newElem[i] = args[i];
-            }
-            
+            var newElem = document.createElement(RegExp.$1);            
             this.nodes.push(newElem);
+            this.setStyle(args);
 		} else {
 			this.nodes = document.querySelectorAll ? document.querySelectorAll(arg) : [];
 		}
@@ -28,8 +25,6 @@ var _ = (function (){
 		return this;
 	}
 
-	// ----------------------------------------------------------------
-	// Static
 	// ----------------------------------------------------------------
 	foo.extend = (function(funcs){
 		for(var i in funcs){
@@ -46,8 +41,6 @@ var _ = (function (){
 		}
 	};
 
-	// ----------------------------------------------------------------
-	// DOM Load
 	// ----------------------------------------------------------------
 	var onDOMLoadFuncs = [];
     var DOMLoaded = false;
@@ -68,6 +61,7 @@ var _ = (function (){
 	document.addEventListener("DOMContentLoaded", function() { DOMLoaded = true; }, true);
 	document.addEventListener("DOMContentLoaded", fireDOMLoadFuncs, true);
         
+    // TODO rewrite this mess.
     var requiredScripts = 0;
     var requiredScriptLoad = function() {
                 requiredScripts--;
@@ -98,22 +92,51 @@ var _ = (function (){
         }
     };
     
-    
-    
-
-	// ----------------------------------------------------------------
-	// foo functions
-	// ----------------------------------------------------------------
+  	// ----------------------------------------------------------------
 	foo.fn.prototype = {
 		get :
             function(){
 				return this.nodes[0];
 			},
-        on : function(arg, callback){
-                if(!(arg in this.onEvents)){
-                    this.onEvents[arg] = [];
+        on :
+            function(eventType, callback){
+                if(!(eventType in this.onEvents)){
+                    this.get().addEventListener(eventType, function(e) { this.handleEvent(e) }.bind(this), true);
+                    this.onEvents[eventType] = [];
                 }
-                this.onEvents[arg].push(callback);
+                this.onEvents[eventType].push(callback);
+            },
+        handleEvent :
+            function(event){
+                event = event || window.event;
+                event.mousePos = {"x" : event.pageX, "y" : event.pageY };
+                this.onEvents[event.type].forEach(function(callback) {
+                    callback(event);
+            });
+        },
+        append :
+            function(children) {
+                function getRawElem(obj) {
+                    return obj instanceof foo.fn) ? obj.get() : obj;
+                }
+                
+                if(children instanceof Array) {
+                    for(var i in children) {
+                        this.get().appendChild(getRawElem(children[i]));
+                    }
+                } else {
+                    this.get().appendChild(getRawElem(children));
+                }
+        },
+        html :
+            function(html) {
+            this.get().innerHTML = html;
+        },
+        setStyle :
+            function(styles){
+                for(var i in styles) {
+                    this.get().setAttribute(i, styles[i]);
+                }
             }
 	}
 
