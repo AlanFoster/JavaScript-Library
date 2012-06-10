@@ -27,8 +27,8 @@ var _ = (function (){
             
         this.attribute(args);
         this.onEvents = {};
-        // Array of object, originalState : previous
-        this.toggledStyles = [];
+        this.chainedFuncs = [];
+        this.isExecutingChain = false;
         
 		return this;
 	}
@@ -111,6 +111,7 @@ var _ = (function (){
         }
     };
     
+
     foo.fn.prototype = {
         constructor : function() { alert(1); },
     	get :
@@ -205,7 +206,7 @@ var _ = (function (){
             function getValue(key, rawValue) {
                 switch(typeof(rawValue)) {
                     case "string" : 
-                        return getValue(key, getRelativeValue(key, rawValue));                            
+                        rawValue = this.getRelativeValue(key, rawValue);
                     case "number" :
                         return (key in this.hasPx) ? rawValue + "px" : rawValue.toString();
                 }
@@ -234,13 +235,13 @@ var _ = (function (){
                 var totalNumberOfSteps = speed / 50;
                 var startingCSS = {};
                 for(var i in desiredCSS) {
-                    var info = startingCSS[i] = {};
-                    var start = info.start = this.css(i);
+                    startingCSS[i] = {};
+                    var start = startingCSS[i].start = this.css(i);
                     var end = this.getRelativeValue(i, desiredCSS[i]);
-                    startingCSS[i].step = start < end ? (end - start) / totalNumberOfSteps : (start - end) / totalNumberOfSteps;
+                    startingCSS[i].step = start < end ? (end - start) / totalNumberOfSteps : -((start - end) / totalNumberOfSteps);
                 }
                 
-                function changePerform(elem, desiredCSS, startingCSS, speed, currentTime, steps) {
+                function changePerform(elem, desiredCSS, startingCSS, speed, currentTime, steps, callback) {
                     var newCSS = {};
                     
                     for(var i in desiredCSS) {
@@ -250,16 +251,35 @@ var _ = (function (){
                     elem.css(newCSS);
                     currentTime += 50;
                     steps++;
-                    if(currentTime <= speed) 
-                        setTimeout(function() { changePerform(elem, desiredCSS, startingCSS, speed, currentTime, steps); }, 50);
+                    if(currentTime <= speed) {
+                        setTimeout(function() { changePerform(elem, desiredCSS, startingCSS, speed, currentTime, steps, callback); }, 50);
+                    } else {
+                        if(callback) {
+                            callback();
+                        }
+                    }
                 }
       
-                changePerform(this, desiredCSS, startingCSS, speed, 0, 0);
+                this.chain(function () {
+                    changePerform(this, desiredCSS, startingCSS, speed, 0, 0, function() { this.isExecutingChain = false; this.executeNextChain(); }.bind(this));
+                }.bind(this));
                 
                 return this;
+            },
+        chain :
+            function(func){
+                this.chainedFuncs.push(func);
+                this.executeNextChain();
+            },
+        executeNextChain :
+            function() {
+                if (!this.isExecutingChain && this.chainedFuncs.length > 0) {
+                    this.isExecutingChain = true;
+                    var nextFunc = this.chainedFuncs.shift();
+                    nextFunc();
+                }
             }
     };
-    
 	return foo;
 })();
 
