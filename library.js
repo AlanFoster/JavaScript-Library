@@ -27,6 +27,8 @@ var _ = (function (){
             
         this.attribute(args);
         this.onEvents = {};
+        // Array of object, originalState : previous
+        this.toggledStyles = [];
         
 		return this;
 	}
@@ -141,8 +143,9 @@ var _ = (function (){
         clear :
             // TODO currently deletes all events. Explicit function removing needs to be added
             function(eventTypes) {
+                // TODO
                 eventTypes.split(" ").forEach(function(eventType) {
-                    this.get().removeEventListener(eventType, );
+                   // this.get().removeEventListener(eventType,  );
                     delete this.onEvents[eventType];
                 }.bind(this));
             },
@@ -174,16 +177,50 @@ var _ = (function (){
             function(html) {
                 this.get().innerHTML = html;
             },
+        hasPx :
+            Object.freeze({
+                "left" : true,
+                "top" : true,
+                "height" : true,
+                "width" : true
+            }),
+        getRelativeValue :
+            function getValue(key, rawValue) {
+                if(typeof(rawValue) == "string") {
+                    // Relative css, IE "+=100" => "600px", and "100" => "100"
+                    // TODO consider opacity etc.
+                    if(/([+-])=(.+)/.test(rawValue)) {
+                        var convertedValue = 0;
+                        var positive = RegExp.$1 == '+';
+                        var actualValue = RegExp.$2;
+                        convertedValue = this.css(key) + (positive ? parseFloat(actualValue) : -parseFloat(actualValue));
+
+                        return  convertedValue;
+                    }
+                }
+                return rawValue;
+            },
+        // Converts a value to the appropiate css value. IE "500" to "500px"
+        convertValue : 
+            function getValue(key, rawValue) {
+                switch(typeof(rawValue)) {
+                    case "string" : 
+                        return getValue(key, getRelativeValue(key, rawValue));                            
+                    case "number" :
+                        return (key in this.hasPx) ? rawValue + "px" : rawValue.toString();
+                }
+                throw new Error("Invalid support for : " + rawValue);
+            },
         // f :: [(a, b)] -> ()
         // f :: a -> b
         css :
             function(css){
                 if(typeof(css) == "object") {
                     for(var i in css) {
-                        this.get().style[i] = css[i];
+                        this.get().style[i] = this.convertValue(i, css[i]);
                     }
                 } else {
-                    return parseInt(this.get().style[css]);
+                    return parseFloat(window.getComputedStyle(this.get(), null).getPropertyValue(css));
                 }
             },
         attribute :
@@ -191,6 +228,35 @@ var _ = (function (){
                 for(var i in styles) {
                     this.get().setAttribute(i, styles[i]);
                 }
+            },
+        change :
+            function(desiredCSS, speed) {
+                var totalNumberOfSteps = speed / 50;
+                var startingCSS = {};
+                for(var i in desiredCSS) {
+                    var info = startingCSS[i] = {};
+                    var start = info.start = this.css(i);
+                    var end = this.getRelativeValue(i, desiredCSS[i]);
+                    startingCSS[i].step = start < end ? (end - start) / totalNumberOfSteps : (start - end) / totalNumberOfSteps;
+                }
+                
+                function changePerform(elem, desiredCSS, startingCSS, speed, currentTime, steps) {
+                    var newCSS = {};
+                    
+                    for(var i in desiredCSS) {
+                        newCSS[i] = startingCSS[i].start + (startingCSS[i].step * steps);
+                    }
+                    
+                    elem.css(newCSS);
+                    currentTime += 50;
+                    steps++;
+                    if(currentTime <= speed) 
+                        setTimeout(function() { changePerform(elem, desiredCSS, startingCSS, speed, currentTime, steps); }, 50);
+                }
+      
+                changePerform(this, desiredCSS, startingCSS, speed, 0, 0);
+                
+                return this;
             }
     };
     
