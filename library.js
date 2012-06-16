@@ -21,7 +21,9 @@ var _ = (function (){
             } else {
                 this.nodes = document.querySelectorAll ? document.querySelectorAll(arg) : [];
             }
-        } else {
+        } 
+            
+        if(typeof(this.nodes) === "undefined") {
             throw new Error("Invalid argument type : " + arg);
         }
             
@@ -125,12 +127,14 @@ var _ = (function (){
             function() {
                 var onEvents = this.onEvents, elem = this.get();
                 
-                var manageEvent = function(eventType, callback) {
-                    if(!(eventType in onEvents)){
-                        elem.addEventListener(eventType, function(e) { this.handleEvent(e) }.bind(this), true);
-                        onEvents[eventType] = [];
-                    }
-                    onEvents[eventType].push(callback);
+                var manageEvent = function(eventTypes, callback) {
+                    eventTypes.split(/\s+/).forEach(function(eventType) {
+                        if(!(eventType in onEvents)){
+                            elem.addEventListener(eventType, function(e) { this.handleEvent(e) }.bind(this), true);
+                            onEvents[eventType] = [];
+                        }
+                        onEvents[eventType].push(callback);
+                    }.bind(this));
                 }.bind(this);
 
                 if(typeof(arguments[0]) == "object"){
@@ -207,12 +211,21 @@ var _ = (function (){
                 switch(typeof(rawValue)) {
                     case "string" : 
                         rawValue = this.getRelativeValue(key, rawValue);
+                        // TODO kinda confusing layout. Possibly add 'endsWith' function to library/String prototype? :/c
+                        if(key in this.hasPx) {
+                            var endsWithPxAlready = (rawValue.length() > 2 && rawValue.lastIndexOf("px")== rawValue.length - 2);
+                            if(!endsWithPxAlready) {
+                                rawValue += "px";
+                            }
+                        }
+                        
+                        return rawValue;
                     case "number" :
                         return (key in this.hasPx) ? rawValue + "px" : rawValue.toString();
                 }
                 throw new Error("Invalid support for : " + rawValue);
             },
-        // f :: [(a, b)] -> ()
+        // f :: [(a, b)] -> (f)
         // f :: a -> b
         css :
             function(css){
@@ -229,6 +242,7 @@ var _ = (function (){
                 for(var i in styles) {
                     this.get().setAttribute(i, styles[i]);
                 }
+                return this;
             },
         change :
             function(desiredCSS, speed) {
@@ -270,6 +284,8 @@ var _ = (function (){
             function(func){
                 this.chainedFuncs.push(func);
                 this.executeNextChain();
+                
+                return this;
             },
         executeNextChain :
             function() {
@@ -278,6 +294,20 @@ var _ = (function (){
                     var nextFunc = this.chainedFuncs.shift();
                     nextFunc();
                 }
+                
+                return this;
+            },
+        show :
+            function(){
+                this.css({"display" : "block"});
+                
+                return this;
+            },
+        hide :
+            function(){
+                this.css({"display" : "none"});
+                
+                return this;
             }
     };
 	return foo;
