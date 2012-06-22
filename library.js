@@ -29,6 +29,7 @@ var _ = (function (){
             
         this.attribute(args);
         this.onEvents = {};
+                
         this.chainedFuncs = [];
         this.isExecutingChain = false;
         
@@ -178,9 +179,17 @@ var _ = (function (){
                     this.get().appendChild(getRawElem(children));
                 }
             },
+        removeAll :
+            function(){
+                var parent = this.get();
+                while(parent.hasChildNodes()) {
+                    parent.removeChild(parent.firstChild);
+                }
+            },
         html :
             function(html) {
                 this.get().innerHTML = html;
+                return this;
             },
         hasPx :
             Object.freeze({
@@ -213,7 +222,7 @@ var _ = (function (){
                         rawValue = this.getRelativeValue(key, rawValue);
                         // TODO kinda confusing layout. Possibly add 'endsWith' function to library/String prototype? :/c
                         if(key in this.hasPx) {
-                            var endsWithPxAlready = (rawValue.length() > 2 && rawValue.lastIndexOf("px")== rawValue.length - 2);
+                            var endsWithPxAlready = (rawValue.length > 2 && rawValue.lastIndexOf("px")== rawValue.length - 2);
                             if(!endsWithPxAlready) {
                                 rawValue += "px";
                             }
@@ -236,6 +245,7 @@ var _ = (function (){
                 } else {
                     return parseFloat(window.getComputedStyle(this.get(), null).getPropertyValue(css));
                 }
+                return this;
             },
         attribute :
             function(styles){
@@ -313,3 +323,41 @@ var _ = (function (){
 	return foo;
 })();
 
+
+var XHR = (function() {
+    function createQueryString(params) {
+        if(params) {
+            for(var key in params) {
+                vals.push(key + "=" + params[key]);
+            }
+            return "?" + vals.join("&");
+        }
+        return "";
+    }
+    
+    function getXHR(type, page, params, callback){
+        var xhr = new XMLHttpRequest();
+
+        if(callback) {
+            xhr.onreadystatechange = function(){
+                if(xhr.readyState == 4 && xhr.status == 200) {
+                    callback(xhr.responseText);
+                }
+            };
+        }
+                    
+        xhr.open(type, page + createQueryString(params), false);
+        xhr.send();
+    };
+            
+    return {
+        "get" : 
+            function(page, params, callback){
+                return getXHR("GET", page, params, callback);
+            },
+        "post" :
+            function(page, params, callback) {
+                return getXHR("POST", page, params, callback);
+            }
+    };
+})();
